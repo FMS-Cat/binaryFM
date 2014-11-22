@@ -1,0 +1,74 @@
+<input id="input" type="file" onchange="go()">
+<a id="link">ウホウホ</a>
+<script>
+
+	function go()
+	{
+		var f=document.getElementById("input").files[0];
+
+		var reader=new FileReader();
+		reader.onload=function(_i)
+		{
+			var i=_i.target.result;
+			var v=new DataView(i);
+
+			var data=0;
+			for(var c=0;;c++)
+			{
+				if(v.getUint8(c)==100)
+				{
+					if(v.getUint8(c+1)==97&&v.getUint8(c+2)==116&&v.getUint8(c+3)==97)
+					{
+						data=c;
+						break;
+					}
+				}
+			}
+
+			var size=v.getUint8(data+4)+256*(v.getUint8(data+5)+256*(v.getUint8(data+6)+256*(v.getUint8(data+7))));
+
+			var out=new ArrayBuffer(44+size);
+			var o=new DataView(out);
+
+			o.setUint8(0,0x52);o.setUint8(1,0x49);o.setUint8(2,0x46);o.setUint8(3,0x46); // "RIFF"
+			setBin(36+size,4,4,o); // total - 8byte
+			o.setUint8(8,0x57);o.setUint8(9,0x41);o.setUint8(10,0x56);o.setUint8(11,0x45); // "WAVE"
+			o.setUint8(12,0x66);o.setUint8(13,0x6D);o.setUint8(14,0x74);o.setUint8(15,0x20); // "fmt "
+			setBin(16,16,4,o); // chunk byte
+			setBin(1,20,2,o); // format
+			setBin(2,22,2,o); // channel
+			setBin(44100,24,4,o); // sampling rate
+			setBin(44100*2*2,28,4,o); // byte per sec
+			setBin(2*2,32,2,o); // byte per sample * channel
+			setBin(16,34,2,o); // bit per sample
+			o.setUint8(36,0x64);o.setUint8(37,0x61);o.setUint8(38,0x74);o.setUint8(39,0x61); // "data"
+			setBin(size,40,4,o); // wave size
+
+			for(var c=0;c<size;c+=2)
+			{
+				var p=Math.floor((c+Math.sin(c*.0004)*1000)/2)*2%size;
+				var s=v.getInt16(44+p,true);
+				o.setInt16(44+c,s,true);
+			}
+
+			var blob=new Blob([o],{"type":"application/x-msdownload"});
+
+			window.URL=window.URL||window.webkitURL;
+			document.getElementById("link").href=window.URL.createObjectURL(blob);
+			document.getElementById("link").download=(+new Date())+".wav";
+//			console.log(out);
+//			window.webkitURL.createObjectURL()
+		}
+		reader.readAsArrayBuffer(f);
+	}
+
+	function setBin(_v,_o,_c,_a)
+	{
+		var v=Math.floor(_v);
+		for(var c=0;c<_c;c++)
+		{
+			_a.setUint8(_o+c,v%256);
+			v=Math.floor(v/256);
+		}
+	}
+</script>
